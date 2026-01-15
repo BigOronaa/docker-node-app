@@ -1,0 +1,40 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write # Required for Workload Identity Federation
+
+    steps:
+      # Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Authenticate with Google Cloud using Workload Identity Federation
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: "projects/130692887496/locations/global/workloadIdentityPools/github-pool/providers/github-actions"
+          service_account: "github-actions@project-525a47ad-8a94-41ce-85d.iam.gserviceaccount.com"
+
+      # Configure Docker to use gcloud credential helper for Artifact Registry
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      # Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest .
+
+      # Push Docker image to Artifact Registry
+      - name: Push Docker image
+        run: |
+          docker push us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
