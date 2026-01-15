@@ -6,46 +6,60 @@ on:
       - main
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
+      # ---------------- Checkout code ----------------
       - uses: actions/checkout@v2
 
-      # Step 2: Set up Docker Buildx
+      # ---------------- Set up Docker Buildx ----------------
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v1
 
-      # Step 3: Build Docker image
+      # ---------------- Build Docker image ----------------
       - name: Build Docker image
         run: docker build -t docker-node-app .
 
-      # Step 4: Push to Docker Hub
+      # ---------------- Push to Docker Hub ----------------
       - name: Push to Docker Hub
         run: |
-          docker tag docker-node-app ${{ secrets.DOCKER_USERNAME }}/docker-node-app:latest
-          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          docker push ${{ secrets.DOCKER_USERNAME }}/docker-node-app:latest
+          docker tag docker-node-app bigoronaa/docker-node-app:latest
+          echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+          docker push bigoronaa/docker-node-app:latest
 
-      # Step 5: Push to AWS ECR
+      # ---------------- Push to AWS ECR ----------------
       - name: Push to AWS ECR
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
+          # Log in to AWS ECR
           aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 149790123077.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-          docker tag docker-node-app 149790123077.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-node-app:latest
+          
+          # Tag the image for ECR
+          docker tag docker-node-app:latest 149790123077.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-node-app:latest
+          
+          # Push to ECR
           docker push 149790123077.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-node-app:latest
 
-      # Step 6: Push to GCP Artifact Registry
+      # ---------------- Push to GCP Artifact Registry ----------------
       - name: Push to GCP Artifact Registry
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
         run: |
+          # Save service account JSON key
           echo "${GOOGLE_APPLICATION_CREDENTIALS}" > gcp-key.json
+          
+          # Authenticate with GCP
           gcloud auth activate-service-account --key-file=gcp-key.json
+          
+          # Configure Docker to use GCP Artifact Registry
           gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-          docker tag docker-node-app us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
+          
+          # Tag the image for GCP
+          docker tag docker-node-app:latest us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
+          
+          # Push to GCP Artifact Registry
           docker push us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
