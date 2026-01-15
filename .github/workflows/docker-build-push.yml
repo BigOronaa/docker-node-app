@@ -24,7 +24,7 @@ jobs:
       # ---------------- Push to Docker Hub ----------------
       - name: Push to Docker Hub
         run: |
-          docker tag docker-node-app bigoronaa/docker-node-app:latest
+          docker tag docker-node-app:latest bigoronaa/docker-node-app:latest
           echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
           docker push bigoronaa/docker-node-app:latest
 
@@ -38,28 +38,28 @@ jobs:
           # Log in to AWS ECR
           aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 149790123077.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
           
-          # Tag the image for ECR
+          # Tag the Docker image for ECR
           docker tag docker-node-app:latest 149790123077.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-node-app:latest
           
-          # Push to ECR
+          # Push the image to ECR
           docker push 149790123077.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-node-app:latest
 
       # ---------------- Push to GCP Artifact Registry ----------------
       - name: Push to GCP Artifact Registry
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
         run: |
-          # Save service account JSON key
-          echo "${GOOGLE_APPLICATION_CREDENTIALS}" > gcp-key.json
+          # Save service account key properly (remove any carriage returns)
+          echo "$GCP_SERVICE_ACCOUNT_KEY" | tr -d '\r' > gcp-key.json
           
-          # Authenticate with GCP
+          # Authenticate with GCP using the service account
           gcloud auth activate-service-account --key-file=gcp-key.json
           
           # Configure Docker to use GCP Artifact Registry
           gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
           
-          # Tag the image for GCP
+          # Tag the Docker image for GCP
           docker tag docker-node-app:latest us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
           
-          # Push to GCP Artifact Registry
+          # Push the Docker image to GCP Artifact Registry
           docker push us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
