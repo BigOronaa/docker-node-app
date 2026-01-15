@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: CI/CD Pipeline
 
 on:
   push:
@@ -6,35 +6,34 @@ on:
       - main
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      id-token: write # Required for Workload Identity Federation
-
     steps:
-      # Checkout code
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      # ---------------- Checkout code ----------------
+      - uses: actions/checkout@v2
 
-      # Authenticate with Google Cloud using Workload Identity Federation
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v1
-        with:
-          workload_identity_provider: "projects/130692887496/locations/global/workloadIdentityPools/github-pool/providers/github-actions"
-          service_account: "github-actions@project-525a47ad-8a94-41ce-85d.iam.gserviceaccount.com"
+      # ---------------- Set up Docker Buildx ----------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
-      # Configure Docker to use gcloud credential helper for Artifact Registry
-      - name: Configure Docker
-        run: gcloud auth configure-docker us-central1-docker.pkg.dev
-
-      # Build Docker image
-      - name: Build Docker image
+      # ---------------- Build and push to Docker Hub ----------------
+      - name: Build and push to Docker Hub
         run: |
-          docker build -t us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest .
+          docker build -t bigoronaa/docker-node-app .
+          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker push bigoronaa/docker-node-app
 
-      # Push Docker image to Artifact Registry
-      - name: Push Docker image
+      # ---------------- Build and push to AWS ECR ----------------
+      - name: Build and push to AWS ECR
         run: |
-          docker push us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
+          docker tag docker-node-app 149790123077.dkr.ecr.us-east-1.amazonaws.com/docker-node-app
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 149790123077.dkr.ecr.us-east-1.amazonaws.com
+          docker push 149790123077.dkr.ecr.us-east-1.amazonaws.com/docker-node-app
+
+      # ---------------- Build and push to GCP Artifact Registry ----------------
+      - name: Build and push to GCP Artifact Registry
+        run: |
+          docker tag docker-node-app us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app
+          gcloud auth configure-docker us-central1-docker.pkg.dev
+          docker push us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app
