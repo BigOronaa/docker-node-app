@@ -45,21 +45,17 @@ jobs:
           docker push 149790123077.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/docker-node-app:latest
 
       # ---------------- Push to GCP Artifact Registry ----------------
-      - name: Push to GCP Artifact Registry
-        env:
-          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+      - name: Authenticate to GCP via Workload Identity Federation
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: "projects/130692887496/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "github-actions@project-525a47ad-8a94-41ce-85d.iam.gserviceaccount.com"
+
+      - name: Configure Docker for GCP
         run: |
-          # Save service account key properly (remove any carriage returns)
-          echo "$GCP_SERVICE_ACCOUNT_KEY" | tr -d '\r' > gcp-key.json
-          
-          # Authenticate with GCP using the service account
-          gcloud auth activate-service-account --key-file=gcp-key.json
-          
-          # Configure Docker to use GCP Artifact Registry
           gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-          
-          # Tag the Docker image for GCP
+
+      - name: Tag and push Docker image to GCP Artifact Registry
+        run: |
           docker tag docker-node-app:latest us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
-          
-          # Push the Docker image to GCP Artifact Registry
           docker push us-central1-docker.pkg.dev/project-525a47ad-8a94-41ce-85d/docker-node-app/docker-node-app:latest
